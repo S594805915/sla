@@ -4,7 +4,7 @@ from datetime import timedelta
 
 class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    RECEIVERS = ["18066804126", "15991686139"]
+    RECEIVERS = ["18066804126", "15991686130"]
     CELERYBEAT_SCHEDULE = {
         'update': {
             'task': 'check_recovery',

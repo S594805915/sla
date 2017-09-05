@@ -1,14 +1,18 @@
 # coding: utf-8
-
 import os
 import requests
 from datetime import datetime
-from flask import request, current_app
+from flask import Flask, request, current_app
+from flask_sqlalchemy import SQLAlchemy
 from celery.utils.log import get_task_logger
-from centerway import create_app, db, celery
+from centerway.celery_init import make_celery
+from centerway.config import config
 logger = get_task_logger(__name__)
 
-app = create_app(os.getenv('FLASK_CONFIG') or 'default')
+app = Flask(__name__)
+app.config.from_object(config[os.getenv('FLASK_CONFIG') or 'default'])
+celery = make_celery(app)
+db = SQLAlchemy(app)
 
 
 class Centerway(db.Model):
