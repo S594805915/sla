@@ -1,0 +1,23 @@
+version: '3'
+
+services:
+  database:
+    image: mysql:5.7
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=123456
+      - MYSQL_USER=centerway
+      - MYSQL_PASSWORD=centerway
+      - MYSQL_DATABASE=centerway
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  redis:
+    image: redis:4
+    ports:
+      - "6379:6379"
+
+
+volumes:
+  mysql_data:
