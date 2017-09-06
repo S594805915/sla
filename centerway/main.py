@@ -23,6 +23,7 @@ class Centerway(db.Model):
     start_time = db.Column(db.DATETIME, nullable=False)
     end_time = db.Column(db.DATETIME, nullable=True, default=None)
     sustain_time = db.Column(db.INTEGER, nullable=True, default=None)
+    calls = db.Column(db.INTEGER, nullable=True)
     is_problem_notice = db.Column(db.BOOLEAN, nullable=True, default=False)
     is_recovery_notice = db.Column(db.BOOLEAN, nullable=True, default=False)
 
@@ -39,9 +40,12 @@ def do():
 
     centerway = Centerway.query.filter_by(app_name=appname, is_recovery_notice=False).first()
     if centerway:
+        calls = centerway.calls + 1
         centerway.end_time = time
+        centerway.calls = calls
     else:
-        db.session.add(Centerway(app_name=appname, error_message='no live upstreams', start_time=time, end_time=time))
+        db.session.add(Centerway(app_name=appname,
+                                 error_message='no live upstreams', start_time=time, end_time=time, calls=1))
     db.session.commit()
 
     return ''
@@ -54,6 +58,7 @@ def update():
         if (datetime.now() - r.end_time).total_seconds() >= 300:
             sustain_time = (r.end_time - r.start_time).total_seconds() / 60
             r.is_recovery_notice = True
+            r.sustain_time = sustain_time
             msg = r.app_name + "于" + datetime.strftime(r.end_time, '%Y%m%d %H:%M:%S') + \
                   "恢复, 持续时间:" + str(sustain_time) + "分钟."
             send_msg(msg, current_app.config.get("RECEIVERS"))
