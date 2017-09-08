@@ -1,9 +1,11 @@
 # coding: utf-8
 import os
+import time
 import requests
 from datetime import datetime
-from flask import Flask, request, current_app
+from flask import Flask, request, current_app, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import func
 from celery.utils.log import get_task_logger
 from centerway.celery_init import make_celery
 from centerway.config import config
@@ -51,23 +53,44 @@ def do():
     return ''
 
 
+@app.route('/stats', methods=['POST'])
+def stats():
+    data = request.get_json()
+    appname = data["app_name"]
+    start = datetime.strptime(data["start_time"], '%Y/%m/%d %H:%M:%S')
+    end = datetime.strptime(data["end_time"], '%Y/%m/%d %H:%M:%S')
+    if appname:
+        centerway = Centerway.query.filter_by(app_name=appname).\
+            filter(Centerway.start_time >= start, Centerway.end_time <= end).all()
+    else:
+        centerway = Centerway.query.with_entities(Centerway.app_name,
+                                                  func.sum(Centerway.sustain_time).label('sustain_time')).\
+            filter(Centerway.start_time >= start, Centerway.end_time <= end).group_by(Centerway.app_name).all()
+    count = len(centerway)
+    return jsonify(centerway)
+
+
 @celery.task(name="check_recovery")
 def update():
     rs = Centerway.query.filter_by(is_recovery_notice=False).all()
     for r in rs:
-        if (datetime.now() - r.end_time).total_seconds() >= 300:
-            sustain_time = (r.end_time - r.start_time).total_seconds() / 60
+        sustain_time = int((r.end_time - r.start_time).total_seconds() / 60)
+        r.sustain_time = sustain_time
+        if (datetime.now() - r.end_time).total_seconds() >= 240:
             r.is_recovery_notice = True
-            r.sustain_time = sustain_time
             msg = r.app_name + "于" + datetime.strftime(r.end_time, '%Y%m%d %H:%M:%S') + \
                   "恢复, 持续时间:" + str(sustain_time) + "分钟."
             send_msg(msg, current_app.config.get("RECEIVERS"))
-            db.session.commit()
+
+        if sustain_time and sustain_time % 5 == 0:
+            msg = r.app_name + "已经故障了" + str(sustain_time) + "分钟."
+            send_msg(msg, current_app.config.get("RECEIVERS"))
+        db.session.commit()
 
 
 @celery.task(name="check_problem")
 def alert_active():
-    rs = Centerway.query.filter_by(is_problem_notice=False).all()
+    rs = Centerway.query.filter_by(is_problem_notice=False)
     for r in rs:
         msg = r.app_name + "在" + datetime.strftime(r.start_time, '%Y%m%d %H:%M:%S') + "发生故障!"
         send_msg(msg, current_app.config.get("RECEIVERS"))

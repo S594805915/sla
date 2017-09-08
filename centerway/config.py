@@ -8,11 +8,11 @@ class Config:
     CELERYBEAT_SCHEDULE = {
         'update': {
             'task': 'check_recovery',
-            'schedule': timedelta(seconds=5)
+            'schedule': timedelta(seconds=10)
         },
         'send_msg': {
             'task': 'check_problem',
-            'schedule': timedelta(seconds=5)
+            'schedule': timedelta(seconds=10)
         }
     }
 
