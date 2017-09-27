@@ -1,10 +1,11 @@
 version: '3'
 
 services:
-  database:
+  mysql:
     image: mysql:5.7
+    restart: always
     ports:
-      - "3306:3306"
+      - 3306:3306
     environment:
       - MYSQL_ROOT_PASSWORD=123456
       - MYSQL_USER=centerway
@@ -14,10 +15,39 @@ services:
       - mysql_data:/var/lib/mysql
 
   redis:
-    image: redis:4
+    image: redis
     ports:
-      - "6379:6379"
+      - 6379:6379
+    environment:
+      - TZ=Asia/Chongqing
 
+  gate:
+    build: ./centerway
+    command: python main.py
+    restart: always
+    environment:
+      - TZ=Asia/Chongqing
+      - FLASK_CONFIG=production
+    ports:
+      - 50001:50001
+    depends_on:
+      - mysql
+    links:
+      - mysql:mysql
+      - redis:redis
+
+  celery:
+    build: ./centerway
+    command: celery -B -A main.celery worker -l info
+    restart: always
+    environment:
+      - TZ=Asia/Chongqing
+      - FLASK_CONFIG=production
+    depends_on:
+      - mysql
+    links:
+      - mysql:mysql
+      - redis:redis
 
 volumes:
   mysql_data:
