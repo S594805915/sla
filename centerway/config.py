@@ -12,15 +12,11 @@ class Config:
     CELERYBEAT_SCHEDULE = {
         'update': {
             'task': 'check_recovery',
-            'schedule': timedelta(seconds=20)
-        },
-        'send_msg': {
-            'task': 'check_problem',
-            'schedule': timedelta(seconds=10)
+            'schedule': timedelta(seconds=30)
         },
         'health_report': {
             'task': 'health_report',
-            'schedule': crontab(hour=8, minute=40)
+            'schedule': crontab(hour=0, minute=40)
         }
     }
 
@@ -39,8 +35,7 @@ class ProductionConfig(Config):
     CELERY_BROKER_URL = 'redis://redis:6379',
     CELERY_RESULT_BACKEND = 'redis://redis:6379'
     RECEIVERS = ["18066804126", "15991686139", "13016252272", "18502977176"]
-    #USER_EMAILS = ["dingl.li@hnair.com", "xgang.jia@hnair.com", "chen-chen11@hnair.com", "x.chu@hnair.com"]
-    USER_EMAILS = ["dingl.li@hnair.com", "xgang.jia@hnair.com"]
+    USER_EMAILS = ["dingl.li@hnair.com", "xgang.jia@hnair.com", "chen-chen11@hnair.com", "x.chu@hnair.com"]
     DEBUG = False
 
 

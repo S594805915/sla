@@ -89,28 +89,29 @@ def update():
     rs = Centerway.query.filter_by(is_recovery_notice=False).all()
     for r in rs:
         sustain_time = int((r.end_time - r.start_time).total_seconds())
-        r.sustain_time = sustain_time
+
         if (datetime.now() - r.end_time).total_seconds() > 300:
             r.is_recovery_notice = True
             msg = r.app_name + "于" + datetime.strftime(r.end_time, '%Y%m%d %H:%M:%S') + \
                   "恢复, 故障持续时间:" + sustime_format(sustain_time)
             send_msg(msg, current_app.config.get("RECEIVERS"))
+            db.session.commit()
+            continue
+            
+        if not r.is_problem_notice:
+            msg = r.app_name + "在" + datetime.strftime(r.start_time, '%Y%m%d %H:%M:%S') + "发生故障!"
+            send_msg(msg, current_app.config.get("RECEIVERS"))
+            r.is_problem_notice = True
+            db.session.commit()
+            continue
 
-        if sustain_time and int(sustain_time / 60) % 5 == 0 and not r.is_sustain_notice:
+        if not sustain_time and int(sustain_time / 60 ) % 5 == 0 and int(sustain_time / 60 ) != int(r.sustain_time / 60 ) \
+               and not r.is_sustain_notice and r.is_problem_notice:
             msg = r.app_name + "已经故障了" + sustime_format(sustain_time)
             send_msg(msg, current_app.config.get("RECEIVERS"))
+            r.sustain_time = sustain_time
             r.is_sustain_notice = True
-        db.session.commit()
-
-
-@celery.task(name="check_problem")
-def alert_active():
-    rs = Centerway.query.filter_by(is_problem_notice=False)
-    for r in rs:
-        msg = r.app_name + "在" + datetime.strftime(r.start_time, '%Y%m%d %H:%M:%S') + "发生故障!"
-        send_msg(msg, current_app.config.get("RECEIVERS"))
-        r.is_problem_notice = True
-        db.session.commit()
+            db.session.commit()
 
 
 @celery.task(name="health_report")
