@@ -15,12 +15,14 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
+from raven.contrib.flask import Sentry
 logger = get_task_logger(__name__)
 
 app = Flask(__name__)
 app.config.from_object(config[os.getenv('FLASK_CONFIG') or 'default'])
 celery = make_celery(app)
 db = SQLAlchemy(app)
+sentry = Sentry(app, dsn='https://60e2471c95df406a969e51560520b7c6:261e38a54e6d496faf82621fe6437dd7@sentry.95071222.net/18')
 
 
 class Centerway(db.Model):
@@ -79,6 +81,8 @@ def stats():
 
 
 def sustime_format(seconds):
+    if not seconds:
+        seconds = 0
     minite = int(seconds / 60)
     second = seconds % 60
     return str(minite) + "分钟" + str(second) + "秒."
@@ -91,10 +95,11 @@ def update():
         sustain_time = int((r.end_time - r.start_time).total_seconds())
 
         if (datetime.now() - r.end_time).total_seconds() > 300:
-            r.is_recovery_notice = True
             msg = r.app_name + "于" + datetime.strftime(r.end_time, '%Y%m%d %H:%M:%S') + \
                   "恢复, 故障持续时间:" + sustime_format(sustain_time)
             send_msg(msg, current_app.config.get("RECEIVERS"))
+            r.is_recovery_notice = True
+            r.sustain_time = sustain_time
             db.session.commit()
             continue
             
@@ -102,10 +107,11 @@ def update():
             msg = r.app_name + "在" + datetime.strftime(r.start_time, '%Y%m%d %H:%M:%S') + "发生故障!"
             send_msg(msg, current_app.config.get("RECEIVERS"))
             r.is_problem_notice = True
+            r.sustain_time = sustain_time
             db.session.commit()
             continue
 
-        if not sustain_time and int(sustain_time / 60 ) % 5 == 0 and int(sustain_time / 60 ) != int(r.sustain_time / 60 ) \
+        if int(sustain_time / 60 ) % 5 == 0 and int(sustain_time / 60 ) != int(r.sustain_time / 60 ) \
                and not r.is_sustain_notice and r.is_problem_notice:
             msg = r.app_name + "已经故障了" + sustime_format(sustain_time)
             send_msg(msg, current_app.config.get("RECEIVERS"))
